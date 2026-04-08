@@ -88,7 +88,7 @@ def _profile_panel():
 
 def run_agent(user_message, chat_pairs, use_planning):
     """
-    chat_pairs: list of [user, assistant] pairs (Gradio 6 format)
+    chat_pairs: list of (user, assistant) tuples (Gradio format)
     We convert to dict format for brain.py internally.
     """
     if not user_message.strip():
@@ -97,8 +97,10 @@ def run_agent(user_message, chat_pairs, use_planning):
     # Convert Gradio pairs -> dict history for brain.py
     history = []
     for pair in chat_pairs:
-        if pair[0]: history.append({"role": "user",      "content": pair[0]})
-        if pair[1]: history.append({"role": "assistant",  "content": pair[1]})
+        user_msg = pair[0] if isinstance(pair, (list, tuple)) else None
+        asst_msg = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else None
+        if user_msg: history.append({"role": "user", "content": user_msg})
+        if asst_msg: history.append({"role": "assistant", "content": asst_msg})
 
     old_stdout = sys.stdout
     sys.stdout = _log
@@ -111,8 +113,8 @@ def run_agent(user_message, chat_pairs, use_planning):
 
     log = _log.drain()
 
-    # Append new pair in Gradio format
-    chat_pairs = chat_pairs + [[user_message, response]]
+    # Append new pair in Gradio format (as tuple)
+    chat_pairs = list(chat_pairs) + [(user_message, response)]
 
     return chat_pairs, log, _memory_panel(), _workspace_panel(), _skills_panel()
 
