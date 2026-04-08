@@ -1,0 +1,6 @@
+langchain-ollama
+langchain-chroma
+langchain-core
+duckduckgo-search
+gradio>=4.0.0
+requests
