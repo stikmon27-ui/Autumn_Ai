@@ -86,21 +86,19 @@ def _profile_panel():
 # Agent runner
 # ---------------------------------------------------------------------------
 
-def run_agent(user_message, chat_pairs, use_planning):
+def run_agent(user_message, chat_messages, use_planning):
     """
-    chat_pairs: list of (user, assistant) tuples (Gradio format)
+    chat_messages: list of dicts with 'role' and 'content' keys (Gradio 4+ format)
     We convert to dict format for brain.py internally.
     """
     if not user_message.strip():
-        return chat_pairs, "", _memory_panel(), _workspace_panel(), _skills_panel()
+        return chat_messages, "", _memory_panel(), _workspace_panel(), _skills_panel()
 
-    # Convert Gradio pairs -> dict history for brain.py
+    # Convert Gradio messages -> dict history for brain.py
     history = []
-    for pair in chat_pairs:
-        user_msg = pair[0] if isinstance(pair, (list, tuple)) else None
-        asst_msg = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else None
-        if user_msg: history.append({"role": "user", "content": user_msg})
-        if asst_msg: history.append({"role": "assistant", "content": asst_msg})
+    for msg in chat_messages:
+        if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+            history.append({"role": msg['role'], "content": msg['content']})
 
     old_stdout = sys.stdout
     sys.stdout = _log
@@ -113,10 +111,13 @@ def run_agent(user_message, chat_pairs, use_planning):
 
     log = _log.drain()
 
-    # Append new pair in Gradio format (as tuple)
-    chat_pairs = list(chat_pairs) + [(user_message, response)]
+    # Append new messages in Gradio 4+ format
+    new_messages = chat_messages + [
+        {"role": "user", "content": user_message},
+        {"role": "assistant", "content": response}
+    ]
 
-    return chat_pairs, log, _memory_panel(), _workspace_panel(), _skills_panel()
+    return new_messages, log, _memory_panel(), _workspace_panel(), _skills_panel()
 
 # ---------------------------------------------------------------------------
 # Skill ingestion
@@ -181,7 +182,7 @@ button.secondary { background: var(--surface) !important; border: 1px solid var(
 # ---------------------------------------------------------------------------
 
 with gr.Blocks(title="AI Agent", css=CSS) as demo:
-    # State stores Gradio-format pairs: [[user, assistant], ...]
+    # State stores Gradio-format messages: list of dicts with role/content
     chat_state = gr.State([])
 
     gr.HTML("""
@@ -194,7 +195,7 @@ with gr.Blocks(title="AI Agent", css=CSS) as demo:
     with gr.Row():
         # Left — chat
         with gr.Column(scale=3):
-            chatbot = gr.Chatbot(label="", height=420)
+            chatbot = gr.Chatbot(label="", height=420, type="messages")
 
             with gr.Row():
                 user_input = gr.Textbox(
